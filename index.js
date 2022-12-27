@@ -143,16 +143,10 @@ async function run() {
 			const result = await postsCollection.insertOne(createPost);
 			res.send(result);
 		});
-		// get my products
-		app.get("/myproducts", verifyJwt, verifySeller, async (req, res) => {
-			const authorization = req.headers.authorization;
-
-			console.log(authorization);
-			const email = req?.decoded?.email;
-			const query = {
-				email: email,
-			};
-			const result = await phonesCollection
+		// get all posts
+		app.get("/posts", async (req, res) => {
+			const query = {};
+			const result = await postsCollection
 				.find(query)
 				.sort({ createdDate: -1 })
 				.toArray();

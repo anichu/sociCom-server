@@ -108,6 +108,46 @@ async function run() {
 			res.send(result);
 		});
 
+		// update user
+		app.put("/user", async (req, res) => {
+			const email = req.query.email;
+			const query = {
+				email,
+			};
+			const { name, university, city, address, dateOfBirth, gender } = req.body;
+			const options = { upsert: true };
+
+			const updateDoc = {
+				$set: {
+					name,
+					university,
+					city,
+					address,
+					dateOfBirth,
+					gender,
+				},
+			};
+			const result = await usersCollection.updateOne(query, updateDoc, options);
+			res.send(result);
+		});
+
+		// update user image
+		app.put("/user/image", async (req, res) => {
+			console.log(req.body.image);
+			const email = req.query.email;
+			const query = {
+				email,
+			};
+			const options = { upsert: true };
+			const updateDoc = {
+				$set: {
+					image: req.body.image,
+				},
+			};
+			const result = await usersCollection.updateOne(query, updateDoc, options);
+			res.send(result);
+		});
+
 		// create user when login with google
 		app.post("/users/google", async (req, res) => {
 			const data = req.body;
@@ -154,7 +194,6 @@ async function run() {
 		});
 
 		// create comment
-
 		app.post("/comment/:id", async (req, res) => {
 			const data = req.body;
 			const createComment = {

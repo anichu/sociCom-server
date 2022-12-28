@@ -152,6 +152,39 @@ async function run() {
 				.toArray();
 			res.send(result);
 		});
+
+		// create comment
+
+		app.post("/comment/:id", async (req, res) => {
+			const data = req.body;
+			const createComment = {
+				_id: new ObjectId(),
+				...data,
+				createdDate: new Date(),
+			};
+			const id = req.params.id;
+			const query = {
+				_id: ObjectId(id),
+			};
+			try {
+				const post = await postsCollection.findOne(query);
+				const comments = post.comments.unshift({ name: "anis" });
+				console.log(comments);
+				const options = { upsert: true };
+				const updateDoc = {
+					$push: { comments: { $each: [createComment], $position: 0 } },
+				};
+				const result = await postsCollection.updateOne(
+					query,
+					updateDoc,
+					options
+				);
+				res.send(result);
+			} catch (error) {
+				res.send(error.message);
+			}
+		});
+
 		// get products by id
 		app.get("/products/book/:id", async (req, res) => {
 			const id = req.params.id;
@@ -162,7 +195,7 @@ async function run() {
 			res.send(result);
 		});
 		// delete my products
-		app.delete("/myproducts/:id", verifyJwt, verifySeller, async (req, res) => {
+		app.delete("/myproducts/:id", verifyJwt, async (req, res) => {
 			const id = req.params.id;
 			const query = {
 				_id: ObjectId(id),
@@ -176,35 +209,6 @@ async function run() {
 			res.send(result);
 		});
 
-		// advertised products
-		app.get(
-			"/myproducts/advertised/:id",
-			verifyJwt,
-			verifySeller,
-			async (req, res) => {
-				const id = req.params.id;
-				const filter = {
-					_id: ObjectId(id),
-				};
-				const options = {
-					upsert: true,
-				};
-
-				const updateDoc = {
-					$set: {
-						isAdvertised: true,
-					},
-				};
-
-				const product = await phonesCollection.updateOne(
-					filter,
-					updateDoc,
-					options
-				);
-
-				res.send(product);
-			}
-		);
 		// get advertised products
 		app.get("/products/advertised", async (req, res) => {
 			const query = {
@@ -215,7 +219,7 @@ async function run() {
 			res.send(result);
 		});
 		// get all buyers
-		app.get("/allbuyers", verifyJwt, verifyAdmin, async (req, res) => {
+		app.get("/allbuyers", verifyJwt, async (req, res) => {
 			const query = {
 				role: "buyer",
 			};
@@ -232,7 +236,7 @@ async function run() {
 			res.send(result);
 		});
 
-		app.get("/allsellers", verifyJwt, verifyAdmin, async (req, res) => {
+		app.get("/allsellers", verifyJwt, async (req, res) => {
 			const query = {
 				role: "seller",
 			};
@@ -270,36 +274,31 @@ async function run() {
 		});
 
 		// verify api
-		app.put(
-			"/user/seller/verify/:id",
-			verifyJwt,
-			verifyAdmin,
-			async (req, res) => {
-				const id = req.params.id;
-				const filter = {
-					_id: ObjectId(id),
-				};
-				const updatedDoc = {
-					$set: {
-						isVerified: true,
-					},
-				};
-				const options = {
-					upsert: true,
-				};
+		app.put("/user/seller/verify/:id", verifyJwt, async (req, res) => {
+			const id = req.params.id;
+			const filter = {
+				_id: ObjectId(id),
+			};
+			const updatedDoc = {
+				$set: {
+					isVerified: true,
+				},
+			};
+			const options = {
+				upsert: true,
+			};
 
-				const result = await usersCollection.updateOne(
-					filter,
-					updatedDoc,
-					options
-				);
-				console.log(result);
-				res.send(result);
-			}
-		);
+			const result = await usersCollection.updateOne(
+				filter,
+				updatedDoc,
+				options
+			);
+			console.log(result);
+			res.send(result);
+		});
 
 		// delete seller
-		app.delete("/user/seller/:id", verifyJwt, verifyAdmin, async (req, res) => {
+		app.delete("/user/seller/:id", verifyJwt, async (req, res) => {
 			const id = req.params.id;
 			const query = {
 				_id: ObjectId(id),

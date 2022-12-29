@@ -224,305 +224,160 @@ async function run() {
 			}
 		});
 
-		// get products by id
-		app.get("/products/book/:id", async (req, res) => {
-			const id = req.params.id;
-			const query = {
-				_id: ObjectId(id),
-			};
-			const result = await phonesCollection.findOne(query);
-			res.send(result);
-		});
-		// delete my products
-		app.delete("/myproducts/:id", verifyJwt, async (req, res) => {
-			const id = req.params.id;
-			const query = {
-				_id: ObjectId(id),
-			};
-			const result = await phonesCollection.deleteOne(query);
-			res.send(result);
-		});
-		// get categories
-		app.get("/categories", async (req, res) => {
-			const result = await categoriesCollection.find({}).toArray();
-			res.send(result);
-		});
-
-		// get advertised products
-		app.get("/products/advertised", async (req, res) => {
-			const query = {
-				isAvailable: true,
-				isAdvertised: true,
-			};
-			const result = await phonesCollection.find(query).toArray();
-			res.send(result);
-		});
-		// get all buyers
-		app.get("/allbuyers", verifyJwt, async (req, res) => {
-			const query = {
-				role: "buyer",
-			};
-			const result = await usersCollection.find(query).toArray();
-			res.send(result);
-		});
-		// buyer delete
-		app.delete("/user/buyer/:id", async (req, res) => {
-			const id = req.params.id;
-			const query = {
-				_id: ObjectId(id),
-			};
-			const result = await usersCollection.deleteOne(query);
-			res.send(result);
-		});
-
-		app.get("/allsellers", verifyJwt, async (req, res) => {
-			const query = {
-				role: "seller",
-			};
-			const result = await usersCollection.find(query).toArray();
-			res.send(result);
-		});
-
-		// get products by categories
-		app.get("/products/:category", async (req, res) => {
-			const category = req.params.category;
-			const query = {
-				category: category,
-				isAvailable: true,
-			};
-			const products = await phonesCollection
-				.find(query)
-				.sort({ createdDate: -1 })
-				.toArray();
-			res.send(products);
-		});
-
-		app.get("/latestproducts", async (req, res) => {
-			const query = {
-				isAvailable: true,
-				isAdvertised: false,
-			};
-
-			const result = await phonesCollection
-				.find(query)
-				.limit(6)
-				.sort({ createdDate: -1 })
-				.toArray();
-
-			res.send(result);
-		});
-
-		// verify api
-		app.put("/user/seller/verify/:id", verifyJwt, async (req, res) => {
-			const id = req.params.id;
-			const filter = {
-				_id: ObjectId(id),
-			};
-			const updatedDoc = {
-				$set: {
-					isVerified: true,
-				},
-			};
-			const options = {
-				upsert: true,
-			};
-
-			const result = await usersCollection.updateOne(
-				filter,
-				updatedDoc,
-				options
-			);
-			console.log(result);
-			res.send(result);
-		});
-
-		// delete seller
-		app.delete("/user/seller/:id", verifyJwt, async (req, res) => {
-			const id = req.params.id;
-			const query = {
-				_id: ObjectId(id),
-			};
-			const result = await usersCollection.deleteOne(query);
-			res.send(result);
-		});
-
-		app.post("/booking", async (req, res) => {
-			const data = req.body;
-			const currentBooking = {
-				...data,
-				created: new Date(),
-				isPaid: false,
-			};
-			const result = await bookingCollection.insertOne(currentBooking);
-			res.send(result);
-		});
-		app.get("/user/buyer/bookings", verifyJwt, async (req, res) => {
-			const email = req?.query?.email;
-
-			if (email !== req.decoded.email) {
-				return res.status(403).send({ message: "access forbidden" });
-			}
-
-			// const paymentPhoneId = await paymentCollection
-			// 	.find({})
-			// 	.project({ phoneId: 1 });
-
+		// get myposts by email
+		app.get("/myposts", async (req, res) => {
+			const email = req.query.email;
 			const query = {
 				email,
 			};
-			const result = await bookingCollection
+			const result = await postsCollection
 				.find(query)
-				.sort({ created: -1 })
+				.sort({ createdDate: -1 })
 				.toArray();
 			res.send(result);
 		});
 
-		app.get("/user/buyer/bookings/:id", async (req, res) => {
-			const id = req.params.id.trim();
+		// get post by id
+		app.get("/post/:id", async (req, res) => {
+			const id = req.params.id;
 			const query = {
 				_id: ObjectId(id),
 			};
-			const result = await bookingCollection.findOne(query);
+			const result = await postsCollection.findOne(query);
 			res.send(result);
 		});
 
-		app.post("/create-payment-intent", async (req, res) => {
-			const booking = req.body;
-			const price = booking.price;
-			const amount = price * 100;
+		// create liked
+		app.post("/post/like/:id", async (req, res) => {
+			const data = req.body;
+			const createReact = {
+				_id: new ObjectId(),
+				...data,
+				createdDate: new Date(),
+			};
+			const id = req.params.id;
+			const query = {
+				_id: ObjectId(id),
+			};
+			try {
+				const post = await postsCollection.findOne(query);
+				const likes = post?.likes?.find((like) => like.email === data.email);
 
-			const paymentIntent = await stripe.paymentIntents.create({
-				currency: "usd",
-				amount: amount,
-				payment_method_types: ["card"],
-			});
+				if (!likes) {
+					const options = { upsert: true };
+					const updateDoc = {
+						$push: { likes: { $each: [createReact], $position: 0 } },
+					};
+					const result = await postsCollection.updateOne(
+						query,
+						updateDoc,
+						options
+					);
+					return res.send(createReact);
+				} else {
+					const result = await postsCollection.updateOne(
+						{
+							_id: ObjectId(id),
+							"likes.email": data.email,
+						},
+						{
+							$set: {
+								"likes.$.like": data.like,
+							},
+						}
+					);
+					return res.send({ ...createReact, _id: likes._id });
+				}
+			} catch (error) {
+				res.send(error.message);
+			}
+		});
+
+		// delete like
+		app.get("/post/like/delete", async (req, res) => {
+			const postId = req.query.postId;
+			const likeId = req.query.likeId;
+			const email = req.query.email;
+			const query = { _id: ObjectId(postId) };
+
+			try {
+				const post = await postsCollection.findOne(query);
+				const likes = post?.likes?.find((like) => like.email === email);
+				if (likes) {
+					const result = await postsCollection.updateOne(
+						query,
+						{
+							$pull: {
+								likes: {
+									_id: ObjectId(likeId),
+								},
+							},
+						},
+						{ new: true }
+					);
+					return res.send(result);
+				}
+				res.send(post);
+			} catch (error) {
+				console.log(error.message);
+				res.send(error.message);
+			}
+		});
+
+		app.get("/post/like/total/:id", async (req, res) => {
+			const query = {
+				_id: ObjectId(req.params.id),
+			};
+			const post = await postsCollection.findOne(query);
+			let like = 0;
+			let love = 0;
+			for (let i = 0; i < post.likes.length; i++) {
+				if (post.likes[i].like === "like") {
+					like++;
+				} else if (post.likes[i].like === "love") {
+					love++;
+				}
+			}
 			res.send({
-				clientSecret: paymentIntent.client_secret,
+				like,
+				love,
 			});
 		});
-
-		app.post("/payments", async (req, res) => {
-			const data = req.body;
-			const { email, transactionId, productId, booking } = data;
-			const currentPayment = {
-				transactionId,
-				booking,
-				email,
-				productId,
-			};
-			console.log(data);
-			const paymentResult = await paymentCollection.insertOne(currentPayment);
-			if (paymentResult.acknowledged) {
-				const filterBooking = {
-					_id: ObjectId(booking),
-				};
-				const filterPhones = {
-					_id: ObjectId(productId),
-				};
-				const options = {
-					upsert: true,
-				};
-				const updateBooking = {
-					$set: {
-						isPaid: true,
-					},
-				};
-
-				const updatePhones = {
-					$set: {
-						isAvailable: false,
-					},
-				};
-
-				const bookingResult = await bookingCollection.updateOne(
-					filterBooking,
-					updateBooking,
-					options
-				);
-				const phoneResult = await phonesCollection.updateOne(
-					filterPhones,
-					updatePhones,
-					options
-				);
-				console.log(phoneResult);
-			}
-
-			res.send(paymentResult);
-		});
-		// whether product is sold  or not
-		app.get("/payments/:id", async (req, res) => {
-			const productId = req.params.id;
-			const query = {
-				productId,
-			};
-			const result = await paymentCollection.findOne(query);
-			res.send(result);
-		});
-
-		app.post("/mywishlist", async (req, res) => {
-			const data = req.body;
-			const currentWishList = {
-				...data,
-				created: new Date(),
-				isBooked: false,
-			};
-			const result = await wishListCollection.insertOne(currentWishList);
-			res.send(result);
-		});
-
-		app.get("/mywishlist/:id", async (req, res) => {
+		// get post by id
+		app.get("/post/:id", async (req, res) => {
 			const id = req.params.id;
 			const query = {
 				_id: ObjectId(id),
 			};
-			const updateDoc = {
-				$set: {
-					isBooked: true,
-				},
-			};
-
-			const options = {
-				upsert: true,
-			};
-			const result = await wishListCollection.updateOne(
-				query,
-				updateDoc,
-				options
-			);
+			const result = await postsCollection.findOne(query);
 			res.send(result);
 		});
 
-		app.get("/user/mywishlist", verifyJwt, async (req, res) => {
-			const email = req?.decoded?.email;
-			console.log("wish", email);
-			const query = {
-				email,
-				isBooked: false,
-			};
-			const result = await wishListCollection
+		app.get("/popular", async (req, res) => {
+			const query = {};
+			const result = await postsCollection
 				.find(query)
-				.sort({ created: -1 })
+				.sort({ createdDate: -1 })
 				.toArray();
-			res.send(result);
+			let array = [];
+			for (let i = 0; i < result.length; i++) {
+				const obj = result[i];
+				array.push({ ...obj, size: obj.likes.length });
+			}
+			console.log(array);
+
+			function compare(a, b) {
+				if (a.size > b.size) {
+					return -1;
+				}
+				if (a.size < b.size) {
+					return 1;
+				}
+				return 0;
+			}
+			array.sort(compare);
+			res.send(array.slice(0, 3));
 		});
-		// app.get("/users/verified", async (req, res) => {
-		// 	const filter = {};
-		// 	const options = {
-		// 		upsert: true,
-		// 	};
-		// 	const updateDoc = {
-		// 		$set: {
-		// 			isVerified: false,
-		// 		},
-		// 	};
-		// 	try {
-		// 		const result = await usersCollection.updateMany(filter, updateDoc);
-		// 		console.log(result);
-		// 		res.send(result);
-		// 	} catch (err) {
-		// 		console.log(err);
-		// 	}
-		// });
 	} catch (err) {
 		console.log(err);
 	}

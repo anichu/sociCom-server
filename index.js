@@ -64,13 +64,9 @@ async function run() {
 	try {
 		const postsCollection = client.db("sociCom").collection("posts");
 		const usersCollection = client.db("sociCom").collection("users");
-		const categoriesCollection = client.db("sociCom").collection("categories");
-		const bookingCollection = client.db("sociCom").collection("bookings");
-		const paymentCollection = client.db("sociCom").collection("payments");
-		const wishListCollection = client.db("sociCom").collection("wishLists");
 
 		app.get("/", async (req, res) => {
-			res.send("Server is running on port 🚀🚀🚀🚀");
+			res.send(`Server is running on port ${port} 🚀🚀🚀🚀`);
 		});
 
 		app.get("/user/jwt", async (req, res) => {
@@ -377,6 +373,16 @@ async function run() {
 			}
 			array.sort(compare);
 			res.send(array.slice(0, 3));
+		});
+
+		app.delete("/post/:id", async (req, res) => {
+			const id = req.params.id;
+			const query = {
+				_id: ObjectId(id),
+			};
+
+			const result = await postsCollection.deleteOne(query);
+			res.send(result);
 		});
 	} catch (err) {
 		console.log(err);
